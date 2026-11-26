@@ -1472,7 +1472,7 @@ private fun LogsScreen(
             onClick = { confirmDiagnosticExport = true },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Сохранить диагностический отчёт")
+            Text("Сохранить логи и диагностику")
         }
         Text(
             text = "Отчёт не отправляется автоматически",
@@ -1550,7 +1550,7 @@ private fun LogsScreen(
                     confirmDiagnosticExport = false
                     operatorRegion = ""
                 },
-                title = { Text("Сохранить отчёт?") },
+                title = { Text("Сохранить отчет?") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(

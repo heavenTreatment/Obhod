@@ -1,6 +1,5 @@
 package com.heaventreat.obhod.update
 
-import android.os.Build
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -29,25 +28,7 @@ internal object GitHubUpdateRepository {
 
         val release = getJsonOrNull(RELEASES_URL + tag)
         val assets = release?.optJSONArray("assets")
-        val apk = if (assets == null) null else {
-            val apkAssets = (0 until assets.length())
-                .map { assets.getJSONObject(it) }
-                .filter { it.optString("name").endsWith(".apk", ignoreCase = true) }
-            val universal = apkAssets.firstOrNull {
-                "universal" in it.optString("name").lowercase()
-            }
-            val generic = apkAssets.firstOrNull {
-                !hasArchitectureSuffix(it.optString("name"))
-            }
-            universal ?: generic ?: apkAssets
-                .mapNotNull { asset ->
-                    Build.SUPPORTED_ABIS.indexOfFirst {
-                        matchesAbi(asset.optString("name"), it)
-                    }.takeIf { it >= 0 }?.let { it to asset }
-                }
-                .minByOrNull { it.first }
-                ?.second
-        }
+        val apk = assets?.let(::selectApkAsset)
         return AppUpdate(
             tag = tag,
             version = version,
@@ -59,23 +40,10 @@ internal object GitHubUpdateRepository {
         )
     }
 
-    private fun hasArchitectureSuffix(name: String): Boolean {
-        val normalized = name.lowercase()
-        return listOf("arm64", "aarch64", "armeabi", "armv7", "arm32", "x86", "x64")
-            .any(normalized::contains)
-    }
-
-    private fun matchesAbi(name: String, abi: String): Boolean {
-        val normalized = name.lowercase()
-        return when (abi) {
-            "arm64-v8a" -> listOf("arm64-v8a", "arm64", "aarch64").any(normalized::contains)
-            "armeabi-v7a" -> listOf("armeabi-v7a", "armeabi", "armv7", "arm32")
-                .any(normalized::contains)
-            "x86_64" -> listOf("x86_64", "x64").any(normalized::contains)
-            "x86" -> "x86" in normalized
-            else -> abi in normalized
-        }
-    }
+    internal fun selectApkAsset(assets: JSONArray): JSONObject? =
+        (0 until assets.length())
+            .map { assets.getJSONObject(it) }
+            .firstOrNull { it.optString("name") == "app-universal-release.apk" }
 
     private fun getJsonArray(url: String): JSONArray =
         JSONArray(getBody(url) ?: throw IOException("GitHub repository not found"))
