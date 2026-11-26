@@ -1,0 +1,16 @@
+{
+  "version": 4,
+  "requests": 2,
+  "timeout_ms": 2500,
+  "concurrency": 6,
+  "min_bytes": 8192,
+  "max_bytes": 262144,
+  "sites": [
+    "https://www.youtube.com/",
+    "https://discord.com/",
+    "https://www.instagram.com/",
+    "https://x.com/",
+    "https://rutracker.org/",
+    "https://www.facebook.com/"
+  ]
+}
