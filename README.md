@@ -26,7 +26,7 @@ VPN-режим собирает встроенный исходный код SOC
 
 ## Сборка проекта
 
-Собрать приложение локально можно одной коммандой:
+Собрать приложение локально можно одной командой:
 ```bash
 git clone --recurse-submodules https://github.com/heavenTreatment/Obhod
 cd Obhod
