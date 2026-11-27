@@ -18,7 +18,7 @@
 
 ### Obhod — приложение с двумя режимами обхода
 
-VPN-режим собирает встроенный исходный код SOCKS5-движка [ByeDPI](https://github.com/hufrea/byedpi) в ревизии, используемой [ByeByeDPI](https://github.com/romanvht/ByeByeDPI), и проверяет его оригинальные CLI-стратегии на HTTPS-сайтах. Нативный движок находится в `core/src/byedpi`, JNI-адаптеры — в `core/src/jni`. Поток VPN передаётся в SOCKS через [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel), который остаётся git submodule. Root-режим управляет KernelSU-модулем nZAPRET через `ksud`. Для Telegram используется Rust-реализация из [tg-ws-proxy-android](https://github.com/amurcanov/tg-ws-proxy-android) (архивировано).
+VPN-режим собирает встроенный исходный код SOCKS5-движка [ByeDPI](https://github.com/hufrea/byedpi) в ревизии, используемой [ByeByeDPI](https://github.com/romanvht/ByeByeDPI), и проверяет его оригинальные CLI-стратегии на HTTPS-сайтах. Нативный движок находится в `core/src/byedpi`, JNI-адаптеры - в `core/src/jni`. Поток VPN передаётся в SOCKS через [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel), который остаётся git submodule. Root-режим управляет KernelSU-модулем nZAPRET через `ksud`. Для Telegram используется Rust-реализация из [tg-ws-proxy-android](https://github.com/amurcanov/tg-ws-proxy-android) (архивировано).
 
 Сторонние проекты сохраняют собственные лицензии и авторские права. Подробности и ссылки приведены выше и в разделе "Исходники" в приложении.
 
