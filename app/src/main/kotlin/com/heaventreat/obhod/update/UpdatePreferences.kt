@@ -49,7 +49,7 @@ internal object UpdatePreferences {
         preferences(context).edit()
             .putLong(DOWNLOAD_ID, id)
             .putString(DOWNLOAD_TAG, tag)
-            .putBoolean(INSTALLING, false)
+            .remove(INSTALLING)
             .apply()
     }
 
@@ -60,11 +60,12 @@ internal object UpdatePreferences {
         preferences(context).getString(DOWNLOAD_TAG, null)
 
     fun setInstalling(context: Context, installing: Boolean) {
-        preferences(context).edit().putBoolean(INSTALLING, installing).apply()
+        if (installing) {
+            preferences(context).edit().putBoolean(INSTALLING, true).apply()
+        } else {
+            preferences(context).edit().remove(INSTALLING).apply()
+        }
     }
-
-    fun isInstalling(context: Context): Boolean =
-        preferences(context).getBoolean(INSTALLING, false)
 
     fun clearDownload(context: Context) {
         preferences(context).edit()

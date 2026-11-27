@@ -30,9 +30,6 @@ internal object UpdateDownloader {
 
     fun progress(context: Context): UpdateDownloadProgress? {
         val id = UpdatePreferences.downloadId(context) ?: return null
-        if (UpdatePreferences.isInstalling(context)) {
-            return UpdateDownloadProgress(UpdateDownloadStage.INSTALLING, 100)
-        }
         val query = DownloadManager.Query().setFilterById(id)
         downloadManager(context).query(query)?.use { cursor ->
             if (!cursor.moveToFirst()) return null
@@ -50,8 +47,10 @@ internal object UpdateDownloader {
                     UpdateDownloadStage.DOWNLOADING,
                     if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 100) else 0
                 )
-                DownloadManager.STATUS_SUCCESSFUL ->
-                    UpdateDownloadProgress(UpdateDownloadStage.INSTALLING, 100)
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    UpdatePreferences.setInstalling(context, false)
+                    null
+                }
                 DownloadManager.STATUS_FAILED -> UpdateDownloadProgress(
                     UpdateDownloadStage.FAILED,
                     0,

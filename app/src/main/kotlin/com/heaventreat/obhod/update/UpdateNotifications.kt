@@ -1,6 +1,7 @@
 package com.heaventreat.obhod.update
 
 import android.app.NotificationChannel
+import android.app.ActivityOptions
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -18,11 +19,22 @@ internal object UpdateNotifications {
 
     fun showInstall(context: Context, installIntent: Intent, version: String) {
         createChannel(context)
+        val options = ActivityOptions.makeBasic().apply {
+            if (Build.VERSION.SDK_INT >= 35) {
+                pendingIntentCreatorBackgroundActivityStartMode =
+                    if (Build.VERSION.SDK_INT >= 36) {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                    } else {
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    }
+            }
+        }
         val pendingIntent = PendingIntent.getActivity(
             context,
             NOTIFICATION_ID,
             installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            options.toBundle()
         )
         notify(
             context,

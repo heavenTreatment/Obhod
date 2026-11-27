@@ -1,6 +1,7 @@
 package com.heaventreat.obhod.update
 
 import android.app.DownloadManager
+import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -68,7 +69,11 @@ internal object UpdateInstallFlow {
     private fun commitInstall(context: Context, apkFile: File, downloadId: Long) {
         val packageInstaller = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-            .apply { setAppPackageName(context.packageName) }
+            .apply {
+                setAppPackageName(context.packageName)
+                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+                setAppLabel(context.applicationInfo.loadLabel(context.packageManager))
+            }
         val sessionId = packageInstaller.createSession(params)
         try {
             packageInstaller.openSession(sessionId).use { session ->
@@ -76,7 +81,6 @@ internal object UpdateInstallFlow {
                     FileInputStream(apkFile).use { input -> input.copyTo(output) }
                     session.fsync(output)
                 }
-                UpdatePreferences.setInstalling(context, true)
                 val statusIntent = Intent(context, UpdateInstallStatusReceiver::class.java)
                     .setAction(STATUS_ACTION)
                     .putExtra(DOWNLOAD_ID_EXTRA, downloadId)
@@ -104,6 +108,7 @@ internal object UpdateInstallFlow {
         val tag = UpdatePreferences.downloadTag(context).orEmpty()
         when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                UpdatePreferences.setInstalling(context, false)
                 val confirmationIntent = getConfirmationIntent(intent)
                 if (confirmationIntent == null) {
                     fail(context, downloadId, tag, "Installer confirmation intent is missing")
@@ -111,9 +116,7 @@ internal object UpdateInstallFlow {
                 }
                 UpdateNotifications.showInstall(context, confirmationIntent, tag)
                 try {
-                    context.startActivity(
-                        confirmationIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
+                    launchConfirmationActivity(context, confirmationIntent)
                 } catch (error: Exception) {
                     AppLog.w(TAG, "Could not launch installer UI; notification was posted", error)
                 }
@@ -139,6 +142,34 @@ internal object UpdateInstallFlow {
         } else {
             intent.getParcelableExtra(Intent.EXTRA_INTENT)
         }
+    }
+
+    private fun launchConfirmationActivity(context: Context, confirmationIntent: Intent) {
+        val options = ActivityOptions.makeBasic().apply {
+            if (Build.VERSION.SDK_INT >= 36) {
+                pendingIntentCreatorBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+                pendingIntentBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_IF_VISIBLE
+            } else if (Build.VERSION.SDK_INT >= 35) {
+                pendingIntentCreatorBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                pendingIntentBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            } else if (Build.VERSION.SDK_INT >= 34) {
+                pendingIntentBackgroundActivityStartMode =
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+        }
+        val launchIntent = confirmationIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            4202,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            options.toBundle()
+        )
+        pendingIntent.send(options.toBundle())
     }
 
     private fun fail(context: Context, downloadId: Long, tag: String, message: String) {
