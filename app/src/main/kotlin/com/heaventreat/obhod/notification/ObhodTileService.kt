@@ -9,6 +9,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.core.content.ContextCompat
 import com.heaventreat.obhod.strategy.StrategyProfiles
+import com.heaventreat.obhod.ui.QuickSettingsIntent
 import com.heaventreat.obhod.ui.MainActivity
 import com.heaventreat.obhod.vpn.ObhodVpnService
 import com.heaventreat.obhod.vpn.VpnPreferences
@@ -56,7 +57,7 @@ class ObhodTileService : TileService() {
             prefs.edit().putBoolean(VpnPreferences.STARTING, false).apply()
         }
         val activityIntent = Intent(this, MainActivity::class.java)
-            .setAction(MainActivity.ACTION_START_FROM_TILE)
+            .setAction(QuickSettingsIntent.ACTION_START_FROM_TILE)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startActivityAndCollapse(

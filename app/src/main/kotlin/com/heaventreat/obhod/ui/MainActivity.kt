@@ -7,8 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
@@ -27,11 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.heaventreat.obhod.diagnostics.ConnectivitySelfTest
-import com.heaventreat.obhod.diagnostics.DiagnosticReport
-import com.heaventreat.obhod.diagnostics.DiagnosticReportData
+import com.heaventreat.obhod.diagnostics.ActivityDiagnosticReport
 import com.heaventreat.obhod.diagnostics.TransferTestConfig
 import com.heaventreat.obhod.logging.AppLog
-import com.heaventreat.obhod.network.NetworkCalibrator
 import com.heaventreat.obhod.strategy.ByeByeDpiManager
 import com.heaventreat.obhod.strategy.StrategyProfiles
 import com.heaventreat.obhod.root.NzapretManager
@@ -44,7 +40,6 @@ import com.heaventreat.obhod.update.UpdatePreferences
 import com.heaventreat.obhod.vpn.ObhodVpnService
 import com.heaventreat.obhod.vpn.VpnPreferences
 import java.io.IOException
-import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -82,7 +77,7 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) startObhod()
         else {
             AppLog.w("UI", "Разрешение VPN отклонено")
-            Toast.makeText(this, "Для системного режима нужно разрешение VPN", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Для обхода нужно разрешение VPN", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -234,8 +229,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleQuickSettingsIntent(intent: Intent?) {
-        if (intent?.action != ACTION_START_FROM_TILE) return
-        intent.action = null
+        if (!QuickSettingsIntent.consume(intent)) return
         toggleObhod()
     }
 
@@ -262,7 +256,7 @@ class MainActivity : AppCompatActivity() {
     private fun refreshBatteryOptimizationState() {
         val powerManager = getSystemService(PowerManager::class.java)
         batteryOptimizationIgnored = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-            powerManager.isIgnoringBatteryOptimizations(packageName)
+                powerManager.isIgnoringBatteryOptimizations(packageName)
     }
 
     private fun requestBatteryOptimizationExemption() {
@@ -310,13 +304,13 @@ class MainActivity : AppCompatActivity() {
         transferTestRunning = true
         transferTestStatus = "Проверка DNS и передачи выполняется…"
         val connectivity = getSystemService(ConnectivityManager::class.java)
-        val network = connectivity?.let(::underlyingNetworkForReport)
+        val network = connectivity?.let(ActivityDiagnosticReport::underlyingNetwork)
         AppLog.i(
             "SelfTest",
             "[SELFTEST_RUN] repetitions=${ConnectivitySelfTest.REPETITIONS} " +
-                "payload_kib=${config.payloadKiB} " +
-                "host_timeout_s=${config.hostTimeoutSeconds} " +
-                "idle_timeout_s=${config.idleTimeoutSeconds}"
+                    "payload_kib=${config.payloadKiB} " +
+                    "host_timeout_s=${config.hostTimeoutSeconds} " +
+                    "idle_timeout_s=${config.idleTimeoutSeconds}"
         )
         lifecycleScope.launch {
             try {
@@ -361,85 +355,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createDiagnosticReport(operatorRegion: String): String {
-        val connectivity = getSystemService(ConnectivityManager::class.java)
-        val network = connectivity?.let(::underlyingNetworkForReport)
-        val capabilities = network?.let(connectivity::getNetworkCapabilities)
-        val details = network?.let { NetworkCalibrator.inspectNetwork(this, it) }
-        val entries = AppLog.entries.value
-        val messages = entries.map { it.message }
-        val calibrationSignal = messages.asReversed().firstNotNullOfOrNull { message ->
-            message.takeIf { it.startsWith("Калибровка сети: ") }
-                ?.removePrefix("Калибровка сети: ")
-                ?.substringBefore(" (кэш)")
-        } ?: "неизвестно"
-        val dnsComparison = messages.asReversed()
-            .firstNotNullOfOrNull { message ->
-                message.takeIf { it.startsWith("DNS Discord/system-vs-DoH: ") }
-                    ?.removePrefix("DNS Discord/system-vs-DoH: ")
-            } ?: "неизвестно"
-        val selectedProfile = VpnPreferences.get(this)
-            .getString(VpnPreferences.SELECTED_PROFILE, StrategyProfiles.DEFAULT_ID)
-            ?: "неизвестно"
-        val networkClass = when {
-            capabilities == null -> "неизвестно"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "мобильная"
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-            else -> "другая"
-        }
-        val data = DiagnosticReportData(
-            generatedAt = DateFormat.getDateTimeInstance(
-                DateFormat.SHORT,
-                DateFormat.MEDIUM,
-                Locale.ROOT
-            ).format(Date()),
-            appVersion = appVersionName(),
-            androidVersion = "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-            device = "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(80),
-            networkClass = networkClass,
-            networkValidated = capabilities?.hasCapability(
-                NetworkCapabilities.NET_CAPABILITY_VALIDATED
-            ),
-            networkMetered = capabilities?.let {
-                !it.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-            },
-            privateDnsActive = details?.privateDnsActive,
-            ipv6Only = details?.ipv6Only,
-            calibrationSignal = calibrationSignal,
-            dnsComparison = dnsComparison,
-            selectedProfile = selectedProfile,
-            operatorRegion = operatorRegion,
-            selfTest = DiagnosticReport.latestSelfTest(messages),
-            logs = entries.map { it.asLine() },
-            connectionEntries = entries,
-            vpnRunning = vpnRunning,
-            vpnStarting = starting
-        )
-        return DiagnosticReport.format(data)
-    }
-
-    @Suppress("DEPRECATION")
-    private fun underlyingNetworkForReport(connectivity: ConnectivityManager): Network? {
-        val candidates = (listOfNotNull(connectivity.activeNetwork) +
-            connectivity.allNetworks).distinct()
-        return candidates.firstOrNull { candidate ->
-            val capabilities = connectivity.getNetworkCapabilities(candidate)
-                ?: return@firstOrNull false
-            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun appVersionName(): String =
-        packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"
+    private fun createDiagnosticReport(operatorRegion: String): String =
+        ActivityDiagnosticReport.create(this, operatorRegion, vpnRunning, starting)
 
     private fun checkForAppUpdate() {
-        val currentVersion = appVersionName()
+        val currentVersion = ActivityDiagnosticReport.appVersionName(this)
         lifecycleScope.launch {
             try {
                 val update = withContext(Dispatchers.IO) {
@@ -672,6 +592,5 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val KEY_TACTIC_HELP_ACCEPTED = "tactic_help_accepted"
-        const val ACTION_START_FROM_TILE = "com.heaventreat.obhod.action.START_FROM_TILE"
     }
 }

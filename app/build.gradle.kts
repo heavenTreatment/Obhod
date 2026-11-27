@@ -160,17 +160,16 @@ fun registerRustBuild(name: String, target: String, abi: String, clangName: Stri
         }
     }
 
-val buildRustArm64 = registerRustBuild(
-    "buildTelegramRustArm64", "aarch64-linux-android", "arm64-v8a", "aarch64-linux-android30-clang"
+val rustTargets = listOf(
+    listOf("buildTelegramRustArm64", "aarch64-linux-android", "arm64-v8a", "aarch64-linux-android30-clang"),
+    listOf("buildTelegramRustArm32", "armv7-linux-androideabi", "armeabi-v7a", "armv7a-linux-androideabi30-clang"),
+    listOf("buildTelegramRustX86_64", "x86_64-linux-android", "x86_64", "x86_64-linux-android30-clang")
 )
-val buildRustArm32 = registerRustBuild(
-    "buildTelegramRustArm32", "armv7-linux-androideabi", "armeabi-v7a", "armv7a-linux-androideabi30-clang"
-)
-val buildRustX86_64 = registerRustBuild(
-    "buildTelegramRustX86_64", "x86_64-linux-android", "x86_64", "x86_64-linux-android30-clang"
-)
+val rustBuildTasks = rustTargets.map { (name, target, abi, clangName) ->
+    registerRustBuild(name, target, abi, clangName)
+}
 val buildTelegramRust = tasks.register("buildTelegramRust") {
-    dependsOn(buildRustArm64, buildRustArm32, buildRustX86_64)
+    dependsOn(rustBuildTasks)
 }
 tasks.named("preBuild").configure {
     dependsOn(buildTelegramRust)

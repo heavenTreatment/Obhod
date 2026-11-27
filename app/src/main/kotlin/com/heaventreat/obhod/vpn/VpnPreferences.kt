@@ -2,6 +2,7 @@ package com.heaventreat.obhod.vpn
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.heaventreat.obhod.preferences.privatePreferences
 import com.heaventreat.obhod.strategy.StrategyProfiles
 
 internal object VpnPreferences {
@@ -17,13 +18,13 @@ internal object VpnPreferences {
     const val BYEBYEDPI_FULL_ANALYSIS = "byebydpi_full_analysis"
 
     fun get(context: Context): SharedPreferences {
-        val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        val preferences = context.privatePreferences(NAME)
         if (!preferences.contains(MIGRATED_KEY)) migrate(context, preferences)
         return preferences
     }
 
     private fun migrate(context: Context, preferences: SharedPreferences) {
-        val legacy = context.getSharedPreferences(LEGACY_NAME, Context.MODE_PRIVATE).all
+        val legacy = context.privatePreferences(LEGACY_NAME).all
         val editor = preferences.edit().putBoolean(MIGRATED_KEY, true)
         legacy.forEach { (key, value) ->
             when (value) {

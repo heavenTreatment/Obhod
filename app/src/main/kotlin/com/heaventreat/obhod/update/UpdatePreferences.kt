@@ -1,6 +1,7 @@
 package com.heaventreat.obhod.update
 
 import android.content.Context
+import com.heaventreat.obhod.preferences.privatePreferences
 
 internal object UpdatePreferences {
     private const val NAME = "obhod_updates"
@@ -74,5 +75,5 @@ internal object UpdatePreferences {
     }
 
     private fun preferences(context: Context) =
-        context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        context.privatePreferences(NAME)
 }
